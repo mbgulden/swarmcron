@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: swarmcron
-Version: 0.1.0
+Version: 0.2.0
 Summary: Zero-dependency DAG cron scheduler & machine execution receipt engine for AI agent swarms and microservices.
 Author-email: Michael Gulden <mbgulden@gmail.com>
 License: MIT

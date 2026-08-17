@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "swarmcron"
-version = "0.1.0"
+version = "0.2.0"
 description = "Zero-dependency DAG cron scheduler & machine execution receipt engine for AI agent swarms and microservices."
 readme = "README.md"
 authors = [{ name = "Michael Gulden", email = "mbgulden@gmail.com" }]
