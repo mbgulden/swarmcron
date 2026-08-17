@@ -166,6 +166,12 @@ class SwarmCronRegistry:
         return FileLock(self.lock_path)
 
     def load(self) -> list[SwarmCronTask]:
+        """Load all registered tasks from the JSON store file.
+
+        Returns an empty list if the store file does not exist or
+        contains invalid JSON. File access is guarded by a file lock
+        to prevent reading partial writes from concurrent processes.
+        """
         if not self.path.exists():
             return []
         try:
@@ -180,10 +186,29 @@ class SwarmCronRegistry:
         _atomic_write_json(self.path, payload)
 
     def save(self, tasks: list[SwarmCronTask]) -> None:
+        """Persist the full task list to the JSON store file.
+
+        Uses atomic write (write-to-temp then rename) guarded by a
+        file lock to prevent corruption under concurrent access.
+        """
         with self._file_lock():
             self._save_unlocked(tasks)
 
     def register(self, task: SwarmCronTask) -> SwarmCronTask:
+        """Register a new task or update an existing one by ID.
+
+        Validates the full DAG for cycles after insertion. If a cycle
+        is detected, raises ``ValueError`` and the store is not modified.
+
+        Args:
+            task: The SwarmCronTask to register.
+
+        Returns:
+            The registered task.
+
+        Raises:
+            ValueError: If adding this task would create a DAG cycle.
+        """
         with self._file_lock():
             tasks = []
             if self.path.exists():
@@ -206,7 +231,17 @@ class SwarmCronRegistry:
         return task
 
     def check_dependencies(self, task_id: str, tasks: list[SwarmCronTask] | None = None) -> None:
-        """Verify that all upstream DAG dependencies have succeeded."""
+        """Verify that all upstream DAG dependencies have succeeded.
+
+        Args:
+            task_id: The task whose dependencies to check.
+            tasks: Optional pre-loaded task list to avoid re-reading the store.
+
+        Raises:
+            KeyError: If the task is not found.
+            DependencyNotSatisfiedError: If any upstream dependency has not
+                completed with ``last_status == 'success'``.
+        """
         all_tasks = tasks or self.load()
         task_map = {t.id: t for t in all_tasks}
         target = task_map.get(task_id)
@@ -222,7 +257,40 @@ class SwarmCronRegistry:
                     f"Upstream dependency '{dep_id}' has status '{dep_task.last_status}' (expected 'success')."
                 )
 
-    def mutate(self, task_id: str, action: Action, enforce_dependencies: bool = True) -> dict[str, Any]:
+    def mutate(
+        self,
+        task_id: str,
+        action: Action,
+        enforce_dependencies: bool = True,
+        max_retries: int = 3,
+    ) -> dict[str, Any]:
+        """Execute a lifecycle action on a registered task.
+
+        Supported actions:
+            - ``run``: Execute the task's command immediately.
+            - ``recover``: Replay the task up to ``max_retries`` times,
+              stopping on the first failure.
+            - ``pause`` / ``resume``: Toggle the task's active state.
+            - ``activate`` / ``deactivate``: Re-enable or disable the task.
+            - ``delete``: Mark the task as deleted.
+
+        Args:
+            task_id: The ID of the task to act on.
+            action: The lifecycle action to perform.
+            enforce_dependencies: If True (default), verify that all
+                upstream DAG dependencies have succeeded before running.
+            max_retries: Maximum replay attempts for the ``recover`` action.
+                Defaults to 3.
+
+        Returns:
+            A dict containing ``success``, ``task``, and action-specific
+            fields (``receipt`` for run, ``replays`` for recover).
+
+        Raises:
+            KeyError: If no task with the given ID exists.
+            DependencyNotSatisfiedError: If dependencies are not satisfied.
+            ValueError: If the action is not recognized.
+        """
         with self._file_lock():
             tasks = []
             if self.path.exists():
@@ -268,7 +336,7 @@ class SwarmCronRegistry:
                     return {"success": receipt.status == "success", "task": task.to_dict(), "receipt": receipt.to_dict()}
                 elif action == "recover":
                     replays = []
-                    for _ in range(3):
+                    for _ in range(max_retries):
                         rc = self.execute_task(task)
                         replays.append(rc.to_dict())
                         if rc.status != "success":
@@ -292,7 +360,19 @@ class SwarmCronRegistry:
             raise KeyError(task_id)
 
     def execute_task(self, task: SwarmCronTask) -> CronRunReceipt:
-        """Execute a task with concurrency locking, path validation, process group isolation, and timeout handling."""
+        """Execute a task's command as a subprocess.
+
+        Performs concurrency checking, environment sanitization, path
+        validation, and subprocess execution with process group isolation
+        and timeout handling. Output is capped at 100KB per stream.
+
+        Args:
+            task: The task to execute.
+
+        Returns:
+            A ``CronRunReceipt`` with status, exit code, stdout, stderr,
+            and duration.
+        """
         # 1. Concurrency Check
         exec_lock = TaskExecutionLock(self.lock_dir, task.id)
         if task.concurrency_policy == "forbid" and not exec_lock.acquire():

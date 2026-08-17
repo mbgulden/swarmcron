@@ -16,7 +16,7 @@ from .scheduler import CronScheduleEvaluator
 from .security import SecurityValidationError, sanitize_env, validate_cwd, validate_task_command
 from .locking import FileLock, TaskExecutionLock
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 __all__ = [
     "SwarmCronTask",
     "SwarmCronRegistry",

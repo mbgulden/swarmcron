@@ -1,2 +1,0 @@
-[console_scripts]
-swarmcron = swarmcron.cli:main
