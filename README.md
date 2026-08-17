@@ -5,34 +5,81 @@
 [![PyPI](https://img.shields.io/pypi/v/swarmcron.svg)](https://pypi.org/project/swarmcron/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![Typing: Typed](https://img.shields.io/badge/Typing-Typed-blue.svg)](https://peps.python.org/pep-0561/)
 
 ---
 
-## 🔥 Why SwarmCron?
+## 🌟 What Sets SwarmCron Apart
 
-Traditional Python schedulers (Celery/Celery Beat, Airflow, Prefect) carry heavy infrastructure requirements (Redis, RabbitMQ, PostgreSQL, Docker). Light in-memory schedulers (APScheduler) lack persistent execution receipts, DAG dependencies, and systemd export capabilities.
+SwarmCron is designed from the ground up for modern autonomous AI agent swarms, distributed microservices, and reliable DevOps workflows.
 
-**SwarmCron** solves this by delivering a **pure Python standard library engine** designed specifically for AI agent swarms and microservices:
+```
+       ┌─────────────────────────────────────────────────────────┐
+       │                SwarmCron Orchestrator                   │
+       └────────────────────────────┬────────────────────────────┘
+                                    │
+      ┌─────────────────────────────┼────────────────────────────┐
+      ▼                             ▼                            ▼
+┌──────────────┐             ┌──────────────┐             ┌──────────────┐
+│  Python API  │             │   FastAPI    │             │   CLI Tool   │
+│  `mutate()`  │             │ `/api/crons` │             │ `swarmcron`  │
+└──────┬───────┘             └──────┬───────┘             └──────┬───────┘
+       │                            │                            │
+       └────────────────────────────┼────────────────────────────┘
+                                    │
+                                    ▼
+       ┌─────────────────────────────────────────────────────────┐
+       │                  Security & Process Gate                │
+       │  • Env Var Sanitization (Blocks Loader Hijacking)       │
+       │  • Process Group Isolation (Kills Zombie Subtrees)      │
+       │  • Output Capping (100KB RAM Protection)                │
+       │  • Atomic FileLock on tasks.json                        │
+       └────────────────────────────┬────────────────────────────┘
+                                    │
+                                    ▼
+       ┌─────────────────────────────────────────────────────────┐
+       │               DAG Engine (`depends_on`)                 │
+       │  • Cycle Detection via Depth-First Search               │
+       │  • Fail-Closed Runtime Upstream State Verification      │
+       └────────────────────────────┬────────────────────────────┘
+                                    │
+                                    ▼
+       ┌─────────────────────────────────────────────────────────┐
+       │           Machine Execution Receipts Engine             │
+       │  `CronRunReceipt`: status, exit_code, duration_ms, logs │
+       └─────────────────────────────────────────────────────────┘
+```
 
-- 🚀 **Zero External Dependencies**: Standard Python 3.10+ stdlib only (`subprocess`, `dataclasses`, `json`).
-- 🔗 **DAG Dependency Graph (`depends_on`)**: Jobs won't fire until their upstream task dependencies succeed.
-- 🔄 **Self-Healing Recovery (`recover`)**: Automatically replays missed execution windows with configurable retries.
-- 🧾 **Machine Execution Receipts (`CronRunReceipt`)**: Logs full ISO timestamps, exit codes, stdout, stderr, and execution duration.
-- 🔒 **Security Hardened**: Env var sanitization, command token validation, path traversal prevention, process group isolation, output capping.
-- 🐧 **Systemd & Crontab Exporter**: One command `swarmcron export-crontab` generates production crontab lines.
-- 🌐 **Instant FastAPI Router**: Drop-in FastAPI endpoints with pluggable auth (`pip install swarmcron[fastapi]`).
+### 1. 🚀 Zero External Dependencies
+Runs everywhere on pure Python 3.10+ standard library. No background databases, no messaging brokers, and no compiled extensions required.
+
+### 2. 🔗 Native DAG Dependency Graphs (`depends_on`)
+Jobs declare dependencies on other tasks. The engine checks the entire dependency graph before launching, preventing downstream execution if any prerequisite task fails.
+
+### 3. 🧾 Machine Execution Receipts (`CronRunReceipt`)
+Every execution produces an immutable, structured machine receipt with exact ISO timestamps, exit codes, execution duration in milliseconds, stdout, and stderr. Perfect for AI agents, monitoring pipelines, and automated audits.
+
+### 4. 🔄 Self-Healing Replay Recovery (`recover`)
+When transient network glitches or service outages occur, SwarmCron provides self-healing recovery actions that can replay tasks up to $N$ times automatically.
+
+### 5. 🛡️ Enterprise Security & Process Isolation
+- **Environment Sanitization**: Strips dangerous dynamic loader variables (`LD_PRELOAD`, `DYLD_INSERT_LIBRARIES`).
+- **Zombie Containment**: Runs subprocesses inside dedicated process groups (`start_new_session=True`). On timeout, terminates the entire process tree (`killpg`).
+- **Memory Protection**: Caps stdout and stderr capture streams at 100KB to eliminate out-of-memory crashes.
+- **Atomic File Locking**: Protects state against race conditions across multiple processes.
+
+### 6. 🌐 Unified Interfaces: Python, CLI & FastAPI
+Use SwarmCron programmatically in Python, manage tasks from shell scripts with the CLI, or drop the FastAPI router into your web services in seconds.
 
 ---
 
 ## 💻 Installation
 
 ```bash
+# Core package (zero dependencies)
 pip install swarmcron
-```
 
-With optional FastAPI support:
-
-```bash
+# With optional FastAPI router support
 pip install swarmcron[fastapi]
 ```
 
@@ -46,105 +93,161 @@ from swarmcron import SwarmCronRegistry, SwarmCronTask
 # 1. Initialize registry (defaults to ~/.swarmcron/tasks.json)
 registry = SwarmCronRegistry()
 
-# 2. Register tasks
+# 2. Register upstream data ingestion task
 registry.register(SwarmCronTask(
-    id="fetch-analytics",
-    name="Fetch Analytics Data",
+    id="fetch-signals",
+    name="Market Signal Ingestion",
     schedule="*/10 * * * *",  # Every 10 minutes
-    command=["python3", "-m", "my_app.fetch_analytics"],
-    tags=["analytics"],
+    command=["python3", "-m", "my_app.ingest_signals"],
+    tags=["ingestion", "agent:scraper"],
 ))
 
+# 3. Register downstream LLM synthesis task (depends on fetch-signals)
 registry.register(SwarmCronTask(
-    id="daily-seo-audit",
-    name="Multi-Site SEO Rank & Vital Auditor",
-    schedule="0 9 * * *",  # Daily at 9am
-    command=["python3", "-m", "my_app.seo_auditor"],
-    depends_on=["fetch-analytics"],  # Won't run until fetch-analytics succeeds
-    tags=["seo", "agent:ned"],
+    id="synthesize-report",
+    name="LLM Market Summary Synthesis",
+    schedule="0 9 * * *",    # Daily at 9:00 AM
+    command=["python3", "-m", "my_app.llm_analyst"],
+    depends_on=["fetch-signals"],  # Fails closed if fetch-signals hasn't succeeded
+    tags=["analysis", "agent:analyst"],
 ))
 
-# 3. Execute a task (returns receipt with exit code, stdout, stderr, duration)
-result = registry.mutate("fetch-analytics", "run")
-print(f"Status: {result['receipt']['status']}, Exit Code: {result['receipt']['exit_code']}")
+# 4. Execute a task and inspect the machine receipt
+result = registry.mutate("fetch-signals", "run")
+receipt = result["receipt"]
+print(f"Status: {receipt['status']} | Exit: {receipt['exit_code']} | Time: {receipt['duration_ms']:.2f}ms")
 
-# 4. Recover missed executions (retries up to 3 times by default)
-recovery = registry.mutate("daily-seo-audit", "recover")
-print(f"Replays: {recovery['replays_count']}, Success: {recovery['success']}")
+# 5. Replay recovery with custom retry count
+recovery = registry.mutate("synthesize-report", "recover", max_retries=3)
+print(f"Recovery Success: {recovery['success']} | Replays: {recovery['replays_count']}")
 ```
 
 ---
 
-## 🌐 FastAPI Integration
+## 🤖 Real-World Use Cases
 
-Mount SwarmCron endpoints to any FastAPI gateway in 3 lines:
+### 1. Autonomous AI Agent Swarm Pipelines
+Coordinate multi-agent workflows where agents depend on each other's outputs. If the research agent fails, the writer agent is automatically paused.
 
 ```python
-from fastapi import FastAPI
-from swarmcron.fastapi_router import create_cron_router
+from swarmcron import SwarmCronRegistry, SwarmCronTask
 
-app = FastAPI()
-app.include_router(create_cron_router(), prefix="/api")
+registry = SwarmCronRegistry()
+
+# Agent 1: Web Scraper
+registry.register(SwarmCronTask(
+    id="agent-crawler",
+    name="Web Crawler Agent",
+    schedule="0 */2 * * *",
+    command=["python3", "agents/crawler.py"],
+))
+
+# Agent 2: Vector Embedding (Depends on Agent 1)
+registry.register(SwarmCronTask(
+    id="agent-vectorizer",
+    name="Vector Embedding Agent",
+    schedule="0 */2 * * *",
+    command=["python3", "agents/vectorizer.py"],
+    depends_on=["agent-crawler"],
+))
+
+# Agent 3: Executive Report Synthesizer (Depends on Agent 2)
+registry.register(SwarmCronTask(
+    id="agent-synthesizer",
+    name="Report Synthesizer Agent",
+    schedule="0 */2 * * *",
+    command=["python3", "agents/synthesizer.py"],
+    depends_on=["agent-vectorizer"],
+))
 ```
 
-Or with custom registry and authentication:
+### 2. DevOps & Infrastructure Automation
+Automate nightly database backups with offsite cloud replication and crontab export:
+
+```bash
+# Register backup task
+swarmcron register --id db-backup --name "Nightly DB Backup" \
+    --schedule "0 2 * * *" --command "pg_dump -Fc mydb > /backups/db.dump"
+
+# Register offsite upload task (depends on db-backup)
+swarmcron register --id s3-sync --name "Offsite S3 Replication" \
+    --schedule "30 2 * * *" --command "aws s3 cp /backups/db.dump s3://my-backups/" \
+    --depends-on "db-backup"
+
+# Export directly to system crontab
+swarmcron export-crontab --include-header | sudo tee /etc/cron.d/swarmcron-jobs
+```
+
+### 3. FastAPI Microservice Embedding
+Expose your cron workflows through a secured REST API:
 
 ```python
+from fastapi import FastAPI, Header, HTTPException
 from swarmcron import SwarmCronRegistry
 from swarmcron.fastapi_router import create_cron_router
 
-registry = SwarmCronRegistry(path=Path("/data/my_tasks.json"))
+app = FastAPI(title="Swarm Task Hub")
+
+def verify_token(x_api_key: str = Header(...)):
+    if x_api_key != "secret-key":
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+# Mount SwarmCron router with authentication
 app.include_router(
-    create_cron_router(registry=registry, auth_dependency=my_auth_dep),
+    create_cron_router(auth_dependency=verify_token),
     prefix="/api",
 )
 ```
 
-Exposes:
-- `GET /api/crons` — List all registered tasks and queue states.
-- `POST /api/crons/{task_id}/action` — Actions: `run`, `pause`, `resume`, `deactivate`, `activate`, `recover`.
-
 ---
 
-## 🛠️ CLI Usage
+## 🛠️ CLI Reference
+
+SwarmCron includes a full-featured CLI:
 
 ```bash
 # List all registered tasks
 swarmcron list
 
-# Point at a specific store file
-swarmcron --store /path/to/tasks.json list
+# Point at a custom tasks store
+swarmcron --store /data/tasks.json list
 
-# Register a task from the command line
-swarmcron register --id my-backup --name "Nightly Backup" \
-    --schedule "0 2 * * *" --command "pg_dump mydb > /backups/db.sql"
+# Register a new task from the terminal
+swarmcron register \
+  --id "health-check" \
+  --name "API Health Check" \
+  --schedule "*/5 * * * *" \
+  --command "curl -sf https://api.example.com/health" \
+  --group "monitoring" \
+  --tags "health,api" \
+  --timeout 30
 
 # Manually trigger a task
-swarmcron run daily-seo-audit
+swarmcron run health-check
 
-# Replay missed executions
-swarmcron recover daily-seo-audit
+# Replay missed executions with custom retries
+swarmcron recover health-check --max-retries 5
 
-# Pause / resume / deactivate / activate / delete
-swarmcron mutate daily-seo-audit pause
+# Manage task state
+swarmcron mutate health-check pause
+swarmcron mutate health-check resume
+swarmcron mutate health-check deactivate
+swarmcron mutate health-check activate
+swarmcron mutate health-check delete
 
-# Export systemd / crontab lines
+# Export active tasks as system crontab lines
 swarmcron export-crontab --include-header
 ```
 
 ---
 
-## 🔒 Security Features
+## 📁 Repository Examples
 
-SwarmCron is hardened against common subprocess and scheduling attack vectors:
+Explore complete runnable examples in the [`examples/`](file:///c:/Users/Michael%20Gulden/Github/swarmcron/examples) directory:
 
-- **Env var sanitization**: Blocks `LD_PRELOAD`, `DYLD_INSERT_LIBRARIES`, and other dynamic loader injection keys.
-- **Command token validation**: Rejects empty or non-string command arguments.
-- **Path validation**: Prevents non-existent or non-directory working directories.
-- **Process group isolation**: Tasks run in dedicated process sessions; timeouts kill the entire subtree.
-- **Output capping**: Stdout/stderr capped at 100KB to prevent RAM exhaustion.
-- **File locking**: Atomic read-modify-write on the task store prevents data corruption under concurrent access.
-- **Concurrency policy**: Per-task `forbid` / `allow` / `replace` policies prevent stampedes.
+- [`01_ai_agent_swarm_pipeline.py`](file:///c:/Users/Michael%20Gulden/Github/swarmcron/examples/01_ai_agent_swarm_pipeline.py) — 4-stage AI agent pipeline with DAG dependencies and machine receipts.
+- [`02_fastapi_microservice.py`](file:///c:/Users/Michael%20Gulden/Github/swarmcron/examples/02_fastapi_microservice.py) — Turnkey FastAPI microservice with authentication.
+- [`03_devops_backup_pipeline.sh`](file:///c:/Users/Michael%20Gulden/Github/swarmcron/examples/03_devops_backup_pipeline.sh) — Shell script automation, crontab export, and recovery replays.
 
 ---
 
