@@ -1,0 +1,97 @@
+# ⚡ SwarmCron
+
+**Zero-dependency DAG cron scheduler, machine execution receipt engine, and FastAPI router for AI agent swarms & Python microservices.**
+
+[![PyPI](https://img.shields.io/pypi/v/swarmcron.svg)](https://pypi.org/project/swarmcron/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+
+---
+
+## 🔥 Why SwarmCron?
+
+Traditional Python schedulers (Celery/Celery Beat, Airflow, Prefect) carry heavy infrastructure requirements (Redis, RabbitMQ, PostgreSQL, Docker). Light in-memory schedulers (APScheduler) lack persistent execution receipts, DAG dependencies, and systemd export capabilities.
+
+**SwarmCron** solves this by delivering a **pure Python standard library engine** designed specifically for AI agent swarms and microservices:
+
+- 🚀 **Zero External Dependencies**: Standard Python 3.10+ stdlib only (`urllib`, `dataclasses`, `json`, `subprocess`).
+- 🔗 **DAG Dependency Graph (`depends_on`)**: Jobs won't fire until their upstream task dependencies succeed.
+- 🔄 **Self-Healing Recovery (`recover`)**: Automatically replays missed execution windows up to N retries.
+- 🧾 **Machine Execution Receipts (`CronRunReceipt`)**: Logs full ISO timestamps, exit codes, stdout, stderr, and execution duration.
+- 🐧 **Systemd & Crontab Exporter**: One command `swarmcron export-crontab` generates production crontab lines.
+- 🌐 **Instant FastAPI Router**: Drop-in FastAPI endpoints (`GET /crons`, `POST /crons/{id}/action`).
+
+---
+
+## 💻 Installation
+
+```bash
+pip install swarmcron
+```
+
+---
+
+## ⚡ Quickstart
+
+```python
+from swarmcron import SwarmCronRegistry, SwarmCronTask
+
+# 1. Initialize registry
+registry = SwarmCronRegistry()
+
+# 2. Register a task with DAG dependencies
+registry.register(SwarmCronTask(
+    id="daily-seo-audit",
+    name="Multi-Site SEO Rank & Vital Auditor",
+    schedule="*/5 * * * *", # Every 5 minutes
+    command=["python3", "-m", "my_app.seo_auditor"],
+    depends_on=["fetch-analytics"],
+    tags=["seo", "agent:ned"],
+))
+
+# 3. Execute or recover
+result = registry.run_task("daily-seo-audit")
+print(f"Status: {result['status']}, Exit Code: {result['exit_code']}")
+```
+
+---
+
+## 🌐 FastAPI Integration
+
+Mount SwarmCron endpoints to any FastAPI gateway in 2 lines:
+
+```python
+from fastapi import FastAPI
+from swarmcron.fastapi_router import router as cron_router
+
+app = FastAPI()
+app.include_router(cron_router, prefix="/api")
+```
+
+Exposes:
+- `GET /api/crons` — List all registered tasks and queue states.
+- `POST /api/crons/{task_id}/action` — Actions: `run`, `pause`, `resume`, `deactivate`, `recover`.
+
+---
+
+## 🛠️ CLI Usage
+
+```bash
+# List all registered tasks
+swarmcron list
+
+# Manually trigger a task
+swarmcron run daily-seo-audit
+
+# Replay missed executions
+swarmcron recover daily-seo-audit
+
+# Export systemd / crontab lines
+swarmcron export-crontab --include-header
+```
+
+---
+
+## 📄 License
+
+MIT License © 2026 Michael Gulden

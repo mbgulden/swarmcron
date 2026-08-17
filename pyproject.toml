@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "swarmcron"
+version = "0.1.0"
+description = "Zero-dependency DAG cron scheduler & machine execution receipt engine for AI agent swarms and microservices."
+readme = "README.md"
+authors = [{ name = "Michael Gulden", email = "mbgulden@gmail.com" }]
+license = { text = "MIT" }
+requires-python = ">=3.10"
+keywords = ["cron", "scheduler", "dag", "swarm", "agent", "fastapi", "machine-receipts"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: System :: Monitoring",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = []
+
+[project.scripts]
+swarmcron = "swarmcron.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/mbgulden/swarmcron"
+Repository = "https://github.com/mbgulden/swarmcron.git"
