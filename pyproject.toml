@@ -7,7 +7,7 @@ name = "swarmcron"
 version = "0.3.0"
 description = "Zero-dependency DAG cron scheduler & machine execution receipt engine for AI agent swarms and microservices."
 readme = "README.md"
-authors = [{ name = "Michael Gulden", email = "mbgulden@gmail.com" }]
+authors = [{ name = "Michael Gulden", email = "michael@growthwebdev.com" }]
 license = "MIT"
 requires-python = ">=3.10"
 keywords = ["cron", "scheduler", "dag", "swarm", "agent", "fastapi", "machine-receipts"]
