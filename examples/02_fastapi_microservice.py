@@ -7,8 +7,10 @@ Demonstrates how to embed SwarmCron into a production FastAPI microservice:
 """
 
 from pathlib import Path
-from fastapi import FastAPI, Header, HTTPException
+
 import uvicorn
+from fastapi import FastAPI, Header, HTTPException
+
 from swarmcron import SwarmCronRegistry, SwarmCronTask
 from swarmcron.fastapi_router import create_cron_router
 
