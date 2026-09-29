@@ -30,7 +30,7 @@ class FileLock:
                     import fcntl
                     fcntl.flock(self._fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
                 return
-            except (OSError, IOError):
+            except OSError:
                 if self._fd is not None:
                     try:
                         os.close(self._fd)
@@ -53,7 +53,7 @@ class FileLock:
             finally:
                 self._fd = None
 
-    def __enter__(self) -> FileLock:
+    def __enter__(self) -> FileLock:  # noqa: PYI034 - explicit FileLock return keeps py3.10 compat (no typing.Self)
         self.acquire()
         return self
 
