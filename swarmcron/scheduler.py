@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
-from typing import Sequence
 
 
 def _parse_field(field_str: str, min_val: int, max_val: int) -> set[int]:
@@ -85,6 +84,6 @@ class CronScheduleEvaluator:
             next_after_last = self.get_next_run(from_dt=last_dt)
             if next_after_last and (current_time - next_after_last) > timedelta(minutes=grace_minutes):
                 return True
-        except Exception:
+        except Exception:  # noqa: BLE001 - invalid schedule input must not crash evaluation
             return False
         return False

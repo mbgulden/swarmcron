@@ -7,10 +7,16 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
 
-from swarmledger.storage.auditor import AuditReport, CryptographicAuditor
-from swarmledger.storage.engine import StorageEngine
+try:
+    from swarmledger.storage.auditor import AuditReport, CryptographicAuditor
+    from swarmledger.storage.engine import StorageEngine
+    HAS_SWARMLEDGER = True
+except ImportError:  # pragma: no cover - optional hypervisor substrate
+    HAS_SWARMLEDGER = False
+    AuditReport = None
+    CryptographicAuditor = None
+    StorageEngine = None
 
 logger = logging.getLogger("swarmcron.auditor")
 
@@ -21,7 +27,7 @@ class SwarmAuditSummary:
     passed_spans: int
     failed_spans: int
     total_violations: int
-    reports: Dict[str, AuditReport]
+    reports: dict[str, AuditReport]
 
 
 class ScheduledLedgerAuditor:
@@ -30,12 +36,17 @@ class ScheduledLedgerAuditor:
     """
 
     def __init__(self, engine: StorageEngine):
+        if not HAS_SWARMLEDGER:
+            raise ImportError(
+                "swarmledger is required for ScheduledLedgerAuditor "
+                "(pip install the SwarmLedger package to enable Merkle audits)"
+            )
         self.engine = engine
         self.auditor = CryptographicAuditor(engine)
 
     def audit_all_spans(self) -> SwarmAuditSummary:
         spans = self.engine.list_spans()
-        reports: Dict[str, AuditReport] = {}
+        reports: dict[str, AuditReport] = {}
         passed = 0
         failed = 0
         total_violations = 0

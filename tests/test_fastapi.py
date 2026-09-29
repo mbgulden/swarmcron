@@ -1,15 +1,20 @@
 """tests/test_fastapi.py — Unit and integration tests for SwarmCron FastAPI router."""
 
-import pytest
 from pathlib import Path
+
+import pytest
+
 from swarmcron.core import SwarmCronRegistry, SwarmCronTask
 
 try:
-    from fastapi import FastAPI, Depends, Header, HTTPException
+    from fastapi import FastAPI, Header, HTTPException
     from fastapi.testclient import TestClient
+
     from swarmcron.fastapi_router import create_cron_router
     HAS_FASTAPI = True
-except ImportError:
+except (ImportError, RuntimeError):
+    # RuntimeError: starlette>=1.6's testclient requires the httpx2 package;
+    # without it the FastAPI tests skip instead of breaking collection.
     HAS_FASTAPI = False
 
 

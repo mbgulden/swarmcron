@@ -1,11 +1,9 @@
 """Unit tests for SwarmCron package."""
 
-import pytest
 from swarmcron import (
-    SwarmCronTask,
     SwarmCronRegistry,
+    SwarmCronTask,
     validate_dag_cycles,
-    CronRunReceipt,
 )
 
 

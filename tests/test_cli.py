@@ -2,8 +2,8 @@
 
 import json
 from pathlib import Path
-from swarmcron.cli import main, export_system_crontab_lines
-from swarmcron.core import SwarmCronRegistry, SwarmCronTask
+
+from swarmcron.cli import main
 
 
 def test_cli_register_and_list(tmp_path: Path, capsys) -> None:

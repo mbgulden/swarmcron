@@ -8,13 +8,19 @@ from __future__ import annotations
 import asyncio
 import logging
 from pathlib import Path
-from typing import Optional
 
-from swarmcron.auditor import ScheduledLedgerAuditor
+from swarmcron.auditor import HAS_SWARMLEDGER, ScheduledLedgerAuditor
 from swarmcron.gc import WorktreeGarbageCollector
-from swarmcron.reaper import ZombieLeaseReaper
-from swarmledger.storage.engine import StorageEngine
-from swarmsaga.journal.engine import JournalEngine
+from swarmcron.reaper import HAS_HYPERVISOR_DEPS, ZombieLeaseReaper
+
+try:
+    from swarmledger.storage.engine import StorageEngine
+    from swarmsaga.journal.engine import JournalEngine
+    HAS_DAEMON_DEPS = True
+except ImportError:  # pragma: no cover - optional hypervisor substrate
+    HAS_DAEMON_DEPS = False
+    StorageEngine = None
+    JournalEngine = None
 
 logger = logging.getLogger("swarmcron.daemon")
 
@@ -26,13 +32,18 @@ class SwarmcronDaemon:
 
     def __init__(
         self,
-        journal_db_path: Optional[str | Path] = None,
-        ledger_db_path: Optional[str | Path] = None,
-        base_sagas_dir: Optional[str | Path] = None,
+        journal_db_path: str | Path | None = None,
+        ledger_db_path: str | Path | None = None,
+        base_sagas_dir: str | Path | None = None,
         reaper_interval_seconds: float = 30.0,
         gc_interval_seconds: float = 300.0,
         audit_interval_seconds: float = 600.0
     ):
+        if not (HAS_SWARMLEDGER and HAS_HYPERVISOR_DEPS and HAS_DAEMON_DEPS):
+            raise ImportError(
+                "swarmledger and swarmsaga are required for SwarmcronDaemon "
+                "(install the sibling Swarm packages to enable the background daemon)"
+            )
         self.journal = JournalEngine(db_path=journal_db_path)
         self.ledger = StorageEngine(db_path=ledger_db_path)
         self.reaper = ZombieLeaseReaper(journal=self.journal)
@@ -64,7 +75,7 @@ class SwarmcronDaemon:
             try:
                 summary = await self.run_once()
                 logger.debug("Swarmcron cycle complete: %s", summary)
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - daemon loop must survive a failed cycle
                 logger.error("Error in Swarmcron cycle: %s", exc)
             await asyncio.sleep(self.reaper_interval)
 

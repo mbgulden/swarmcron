@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from typing import Any
 
@@ -20,7 +19,6 @@ HAZARDOUS_ENV_VARS = {
 
 class SecurityValidationError(ValueError):
     """Raised when task configuration fails security validation."""
-    pass
 
 
 def sanitize_env(env: dict[str, str] | None, allow_hazardous: bool = False) -> dict[str, str]:
