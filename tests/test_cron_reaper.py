@@ -7,15 +7,26 @@ import os
 import tempfile
 import time
 from pathlib import Path
+
 import pytest
 
 from swarmcron.auditor import ScheduledLedgerAuditor
 from swarmcron.daemon import SwarmcronDaemon
 from swarmcron.gc import WorktreeGarbageCollector
 from swarmcron.reaper import ZombieLeaseReaper
-from swarmledger.core.node import EventType
-from swarmledger.storage.engine import StorageEngine
-from swarmsaga.journal.engine import JournalEngine
+
+try:
+    from swarmledger.core.node import EventType
+    from swarmledger.storage.engine import StorageEngine
+    from swarmsaga.journal.engine import JournalEngine
+    HAS_HYPERVISOR = True
+except ImportError:
+    HAS_HYPERVISOR = False
+
+pytestmark = pytest.mark.skipif(
+    not HAS_HYPERVISOR,
+    reason="swarmledger/swarmsaga not installed (optional hypervisor substrate)",
+)
 
 
 def test_zombie_lease_reaper_unwinds_orphaned_saga():
@@ -79,7 +90,7 @@ def test_scheduled_ledger_auditor_reports_integrity():
 
         span_id = "span_audit_cron_1"
         n1 = engine.append_node(span_id, EventType.PROMPT, "user", {"query": "hello"})
-        n2 = engine.append_node(span_id, EventType.COMMIT, "agent", {"res": "ok"}, [n1.node_id])
+        engine.append_node(span_id, EventType.COMMIT, "agent", {"res": "ok"}, [n1.node_id])
 
         auditor = ScheduledLedgerAuditor(engine)
         summary = auditor.audit_all_spans()
