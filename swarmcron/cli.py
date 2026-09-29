@@ -4,8 +4,8 @@ import argparse
 import json
 import shlex
 import sys
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Sequence
 
 from .core import SwarmCronRegistry, SwarmCronTask
 
