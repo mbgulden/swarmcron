@@ -16,7 +16,8 @@ Features demonstrated:
 import sys
 import tempfile
 from pathlib import Path
-from swarmcron import SwarmCronRegistry, SwarmCronTask, DependencyNotSatisfiedError
+
+from swarmcron import DependencyNotSatisfiedError, SwarmCronRegistry, SwarmCronTask
 
 
 def main() -> None:
