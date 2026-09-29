@@ -10,15 +10,21 @@ import subprocess
 import sys
 import tempfile
 import time
+from collections.abc import Sequence
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Literal, Sequence
+from typing import Any, Literal
 
 from .locking import FileLock, TaskExecutionLock
 from .receipt import CronRunReceipt
 from .scheduler import CronScheduleEvaluator
-from .security import sanitize_env, validate_cwd, validate_task_command, SecurityValidationError
+from .security import (
+    SecurityValidationError,
+    sanitize_env,
+    validate_cwd,
+    validate_task_command,
+)
 
 CRON_STATE_ACTIVE = "active"
 CRON_STATE_PAUSED = "paused"
@@ -34,12 +40,10 @@ MAX_OUTPUT_BYTES = 100 * 1024  # 100 KB max captured per stream to prevent RAM e
 
 class DependencyNotSatisfiedError(RuntimeError):
     """Raised when an upstream dependency has not completed successfully."""
-    pass
 
 
 class TaskAlreadyRunningError(RuntimeError):
     """Raised when a task is already running and concurrency_policy is 'forbid'."""
-    pass
 
 
 def _now() -> str:
@@ -131,14 +135,14 @@ class SwarmCronTask:
             evaluator = CronScheduleEvaluator(self.schedule)
             next_dt = evaluator.get_next_run(from_dt)
             return next_dt.isoformat() if next_dt else None
-        except Exception:
+        except Exception:  # noqa: BLE001 - intentional defensive fallback: bad input/store must not crash the scheduler
             return None
 
     def is_missed(self, now: datetime | None = None) -> bool:
         try:
             evaluator = CronScheduleEvaluator(self.schedule)
             return evaluator.is_missed(self.last_run_at, now)
-        except Exception:
+        except Exception:  # noqa: BLE001 - intentional defensive fallback: bad input/store must not crash the scheduler
             return False
 
     def to_dict(self) -> dict[str, Any]:
@@ -178,7 +182,7 @@ class SwarmCronRegistry:
             with self._file_lock():
                 raw = json.loads(self.path.read_text(encoding="utf-8"))
                 return [SwarmCronTask.from_dict(item) for item in raw.get("tasks", [])]
-        except Exception:
+        except Exception:  # noqa: BLE001 - intentional defensive fallback: bad input/store must not crash the scheduler
             return []
 
     def _save_unlocked(self, tasks: list[SwarmCronTask]) -> None:
@@ -215,7 +219,7 @@ class SwarmCronRegistry:
                 try:
                     raw = json.loads(self.path.read_text(encoding="utf-8"))
                     tasks = [SwarmCronTask.from_dict(item) for item in raw.get("tasks", [])]
-                except Exception:
+                except Exception:  # noqa: BLE001 - intentional defensive fallback: bad input/store must not crash the scheduler
                     tasks = []
             
             existing = [i for i, t in enumerate(tasks) if t.id == task.id]
@@ -297,7 +301,7 @@ class SwarmCronRegistry:
                 try:
                     raw = json.loads(self.path.read_text(encoding="utf-8"))
                     tasks = [SwarmCronTask.from_dict(item) for item in raw.get("tasks", [])]
-                except Exception:
+                except Exception:  # noqa: BLE001 - intentional defensive fallback: bad input/store must not crash the scheduler
                     tasks = []
 
             for index, task in enumerate(tasks):
@@ -452,7 +456,7 @@ class SwarmCronRegistry:
                 stderr=f"Security validation error: {sec_err}",
                 duration_ms=0.0,
             )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - intentional defensive fallback: bad input/store must not crash the scheduler
             return CronRunReceipt(
                 task_id=task.id,
                 ran_at=_now(),
