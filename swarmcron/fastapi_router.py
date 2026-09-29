@@ -7,9 +7,9 @@ Requires the ``fastapi`` optional dependency::
 
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any
 
-from .core import SwarmCronRegistry, Action
+from .core import Action, SwarmCronRegistry
 
 try:
     from fastapi import APIRouter, Body, Depends, HTTPException
@@ -44,7 +44,7 @@ def create_cron_router(
     router = APIRouter(prefix="/crons", tags=["SwarmCron"], dependencies=dependencies)
 
     @router.get("")
-    def list_crons(include_deleted: bool = False) -> Dict[str, Any]:
+    def list_crons(include_deleted: bool = False) -> dict[str, Any]:
         """List all registered SwarmCron tasks."""
         tasks = reg.load()
         if not include_deleted:
@@ -52,18 +52,18 @@ def create_cron_router(
         return {"ok": True, "tasks": [t.to_dict() for t in tasks]}
 
     @router.post("/{task_id}/action")
-    def mutate_cron_action(task_id: str, payload: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
+    def mutate_cron_action(task_id: str, payload: dict[str, Any] = Body(...)) -> dict[str, Any]:  # noqa: B008 - standard FastAPI Body(...) idiom
         """Execute action (run, pause, resume, deactivate, activate, recover) on a SwarmCron task."""
         action: Action = payload.get("action", "run")
         try:
             return reg.mutate(task_id, action)
         except KeyError:
             raise HTTPException(status_code=404, detail=f"Task not found: {task_id}")
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - map unexpected registry errors to HTTP 400
             raise HTTPException(status_code=400, detail=str(exc))
 
     @router.post("/{task_id}/register")
-    def register_task(task_id: str, payload: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
+    def register_task(task_id: str, payload: dict[str, Any] = Body(...)) -> dict[str, Any]:  # noqa: B008 - standard FastAPI Body(...) idiom
         """Register a new task or update an existing one."""
         from .core import SwarmCronTask
         payload["id"] = task_id
@@ -71,7 +71,7 @@ def create_cron_router(
             task = SwarmCronTask.from_dict(payload)
             reg.register(task)
             return {"ok": True, "task": task.to_dict()}
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - map unexpected registry errors to HTTP 400
             raise HTTPException(status_code=400, detail=str(exc))
 
     return router
